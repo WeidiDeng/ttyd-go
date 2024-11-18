@@ -1,7 +1,9 @@
 package ttyd
 
 import (
+	"bufio"
 	_ "embed"
+	"net"
 
 	"compress/flate"
 	"io"
@@ -74,17 +76,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	HandleTTYD(h.cmd, conn, bw, h.extension)
+}
+
+// HandleTTYD handles a websocket connection upgraded through other means. Normally NewHandler should be used instead.
+func HandleTTYD(cmd *exec.Cmd, conn net.Conn, brw *bufio.ReadWriter, extension *wsflate.Extension) {
 	d := &daemon{
 		conn: &wsConn{
-			brw:  bw,
+			brw:  brw,
 			conn: conn,
 		},
-		cmd:    h.cmd,
+		cmd:    cmd,
 		resume: make(chan struct{}),
 	}
 
-	if h.extension != nil {
-		e, accepted := h.extension.Accepted()
+	if extension != nil {
+		e, accepted := extension.Accepted()
 		d.conn.e = e
 		d.conn.accepted = accepted
 
