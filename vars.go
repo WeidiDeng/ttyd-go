@@ -1,7 +1,5 @@
 package ttyd
 
-import "github.com/gobwas/httphead"
-
 const (
 	input          = '0'
 	resizeTerminal = '1'
@@ -17,9 +15,6 @@ const (
 var (
 	compressionReadTail = []byte{
 		0, 0, 0xff, 0xff, 1, 0, 0, 0xff, 0xff,
-	}
-	dummyNegotiate = func(httphead.Option) (httphead.Option, error) {
-		return httphead.Option{}, nil
 	}
 )
 

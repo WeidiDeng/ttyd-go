@@ -33,45 +33,55 @@ func wsProtocol(string) bool {
 // Handler handles each ttyd session.
 type Handler struct {
 	cmd       *exec.Cmd
-	upgrader  *ws.HTTPUpgrader
 	extension *wsflate.Extension
 }
 
 // A HandlerOption sets an option on a handler.
 type HandlerOption func(*Handler)
 
-// DisableCompression disables the compression negotiation.
-func DisableCompression() HandlerOption {
+// EnableCompressionWithContextTakeover enables compression with context takeover.
+func EnableCompressionWithContextTakeover() HandlerOption {
+	return EnableCompressionWithExtension(&wsflate.Extension{})
+}
+
+// EnableCompressionWithNoContextTakeover enables compression with no context takeover.
+func EnableCompressionWithNoContextTakeover() HandlerOption {
+	return EnableCompressionWithExtension(&wsflate.Extension{
+		Parameters: wsflate.Parameters{
+			ServerNoContextTakeover: true,
+			ClientNoContextTakeover: true,
+		},
+	})
+}
+
+// EnableCompressionWithExtension enables compression with the specified extension.
+func EnableCompressionWithExtension(extension *wsflate.Extension) HandlerOption {
 	return func(h *Handler) {
-		h.extension = nil
-		h.upgrader.Negotiate = nil
+		h.extension = extension
 	}
 }
 
 // NewHandler returns a new Handler with specified options applied.
 // cmd mustn't be nil.
-// By default, compression with context takeover is enabled.
 func NewHandler(cmd *exec.Cmd, options ...HandlerOption) *Handler {
 	h := &Handler{
 		cmd: cmd,
-		upgrader: &ws.HTTPUpgrader{
-			Protocol:  wsProtocol,
-			Negotiate: dummyNegotiate,
-		},
 	}
 	for _, option := range options {
 		option(h)
-	}
-	if h.upgrader.Negotiate != nil && h.extension == nil {
-		h.extension = &wsflate.Extension{}
-		h.upgrader.Negotiate = h.extension.Negotiate
 	}
 	return h
 }
 
 // ServeHTTP upgrades the HTTP connection to a WebSocket connection and serve ttyd protocol on it.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	conn, bw, _, err := h.upgrader.Upgrade(r, w)
+	upgrader := &ws.HTTPUpgrader{
+		Protocol: wsProtocol,
+	}
+	if h.extension != nil {
+		upgrader.Negotiate = h.extension.Negotiate
+	}
+	conn, bw, _, err := upgrader.Upgrade(r, w)
 	if err != nil {
 		return
 	}
