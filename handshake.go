@@ -34,6 +34,7 @@ func wsProtocol(string) bool {
 type Handler struct {
 	cmd       *exec.Cmd
 	extension *wsflate.Extension
+	writable  bool
 }
 
 // A HandlerOption sets an option on a handler.
@@ -62,8 +63,16 @@ func EnableCompressionWithExtension(extension *wsflate.Extension) HandlerOption 
 	}
 }
 
+// EnableClientInput enables client inputs to the tty.
+func EnableClientInput() HandlerOption {
+	return func(h *Handler) {
+		h.writable = true
+	}
+}
+
 // NewHandler returns a new Handler with specified options applied.
 // cmd mustn't be nil.
+// By default, client input is not forwarded to the tty and no compression is negotiated.
 func NewHandler(cmd *exec.Cmd, options ...HandlerOption) *Handler {
 	h := &Handler{
 		cmd: cmd,
@@ -97,8 +106,9 @@ func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 			brw:  brw,
 			conn: conn,
 		},
-		cmd:    h.cmd,
-		resume: make(chan struct{}),
+		cmd:      h.cmd,
+		resume:   make(chan struct{}),
+		writable: h.writable,
 	}
 
 	if h.extension != nil {

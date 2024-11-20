@@ -2,6 +2,7 @@ package ttyd
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -19,6 +20,8 @@ type daemon struct {
 	paused atomic.Bool
 	resume chan struct{}
 	ioErr  atomic.Bool
+
+	writable bool
 }
 
 func (d *daemon) cleanup() {
@@ -77,7 +80,11 @@ func (d *daemon) readLoop() {
 
 		switch cmd {
 		case input:
-			_, err = d.conn.rb.WriteTo(d.file)
+			if d.writable {
+				_, err = d.conn.rb.WriteTo(d.file)
+			} else {
+				_, err = d.conn.rb.WriteTo(io.Discard)
+			}
 			if err != nil {
 				return
 			}
