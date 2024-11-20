@@ -55,6 +55,7 @@ func EnableCompressionWithNoContextTakeover() HandlerOption {
 }
 
 // EnableCompressionWithExtension enables compression with the specified extension.
+// It can be used to set the compression parameter when upgrade is handled manually.
 func EnableCompressionWithExtension(extension *wsflate.Extension) HandlerOption {
 	return func(h *Handler) {
 		h.extension = extension
