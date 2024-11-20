@@ -81,27 +81,27 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.extension != nil {
 		upgrader.Negotiate = h.extension.Negotiate
 	}
-	conn, bw, _, err := upgrader.Upgrade(r, w)
+	conn, brw, _, err := upgrader.Upgrade(r, w)
 	if err != nil {
 		return
 	}
 
-	HandleTTYD(h.cmd, conn, bw, h.extension)
+	h.HandleTTYD(conn, brw)
 }
 
 // HandleTTYD handles a websocket connection upgraded through other means. Normally NewHandler should be used instead.
-func HandleTTYD(cmd *exec.Cmd, conn net.Conn, brw *bufio.ReadWriter, extension *wsflate.Extension) {
+func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 	d := &daemon{
 		conn: &wsConn{
 			brw:  brw,
 			conn: conn,
 		},
-		cmd:    cmd,
+		cmd:    h.cmd,
 		resume: make(chan struct{}),
 	}
 
-	if extension != nil {
-		e, accepted := extension.Accepted()
+	if h.extension != nil {
+		e, accepted := h.extension.Accepted()
 		d.conn.e = e
 		d.conn.accepted = accepted
 
