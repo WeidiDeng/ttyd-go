@@ -22,6 +22,7 @@ type daemon struct {
 	ioErr  atomic.Bool
 
 	writable bool
+	options  map[string]any
 }
 
 func (d *daemon) cleanup() {
@@ -48,7 +49,12 @@ func (d *daemon) initWrite() error {
 	}
 
 	d.conn.wb.WriteByte(setPreference)
-	d.conn.wb.WriteString("{ }")
+	if len(d.options) == 0 {
+		d.conn.wb.WriteString("{ }")
+	} else {
+		_ = json.NewEncoder(&d.conn.wb).Encode(d.options)
+		d.conn.wb.Truncate(d.conn.wb.Len() - 1)
+	}
 	_, err = d.conn.wb.WriteTo(d.conn)
 	return err
 }

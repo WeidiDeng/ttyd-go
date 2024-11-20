@@ -35,6 +35,7 @@ type Handler struct {
 	cmd       *exec.Cmd
 	extension *wsflate.Extension
 	writable  bool
+	options   map[string]any
 }
 
 // A HandlerOption sets an option on a handler.
@@ -67,6 +68,15 @@ func EnableCompressionWithExtension(extension *wsflate.Extension) HandlerOption 
 func EnableClientInput() HandlerOption {
 	return func(h *Handler) {
 		h.writable = true
+	}
+}
+
+// WithClientOptions sets the client options to be sent to the client.
+// These options can also be set by the client using the URL query parameters,
+// and they have a higher priority than these options.
+func WithClientOptions(options map[string]any) HandlerOption {
+	return func(h *Handler) {
+		h.options = options
 	}
 }
 
@@ -109,6 +119,7 @@ func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 		cmd:      h.cmd,
 		resume:   make(chan struct{}),
 		writable: h.writable,
+		options:  h.options,
 	}
 
 	if h.extension != nil {
