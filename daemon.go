@@ -13,13 +13,15 @@ import (
 )
 
 type daemon struct {
-	conn *wsConn
-	cmd  *exec.Cmd
-	file *os.File
+	conn         *wsConn
+	tokenHandler TokenHandler
+	cmd          *exec.Cmd
+	file         *os.File
 
-	paused atomic.Bool
-	resume chan struct{}
-	ioErr  atomic.Bool
+	closeCode ws.StatusCode
+	paused    atomic.Bool
+	resume    chan struct{}
+	ioErr     atomic.Bool
 
 	writable bool
 	options  map[string]any
@@ -27,11 +29,26 @@ type daemon struct {
 
 func (d *daemon) cleanup() {
 	if d.ioErr.CompareAndSwap(false, true) {
-		d.conn.Close()
+		var closeCode ws.StatusCode
 		if d.file != nil {
 			_ = d.file.Close()
-			_ = d.cmd.Wait()
+			err := d.cmd.Wait()
+			if err == nil {
+				closeCode = ws.StatusNormalClosure
+			} else {
+				closeCode = ws.StatusInternalServerError
+			}
+		} else {
+			if d.cmd == nil {
+				closeCode = ws.StatusPolicyViolation
+			} else {
+				closeCode = ws.StatusInternalServerError
+			}
 		}
+		if d.closeCode != 0 {
+			closeCode = d.closeCode
+		}
+		d.conn.CloseWithStatus(closeCode)
 	}
 }
 
@@ -126,6 +143,11 @@ func (d *daemon) readLoop() {
 			var rr resizeRequest
 			err = json.NewDecoder(&d.conn.rb).Decode(&rr)
 			if err != nil {
+				return
+			}
+
+			d.cmd = d.tokenHandler.GetCommand(rr.Token)
+			if d.cmd == nil {
 				return
 			}
 

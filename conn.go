@@ -33,9 +33,10 @@ type wsConn struct {
 	lock sync.Mutex
 }
 
-func (w *wsConn) Close() {
+func (w *wsConn) CloseWithStatus(status ws.StatusCode) {
 	w.lock.Lock()
-	_, _ = w.conn.Write(ws.CompiledCloseNormalClosure)
+	_ = ws.WriteFrame(w.brw, ws.NewCloseFrame(ws.NewCloseFrameBody(status, "")))
+	_ = w.brw.Flush()
 	w.lock.Unlock()
 	_ = w.conn.Close()
 }

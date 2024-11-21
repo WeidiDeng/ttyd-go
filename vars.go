@@ -19,6 +19,7 @@ var (
 )
 
 type resizeRequest struct {
+	Token   string `json:"token"`
 	Columns uint16 `json:"columns"`
 	Rows    uint16 `json:"rows"`
 }

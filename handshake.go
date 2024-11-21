@@ -6,12 +6,9 @@ import (
 	"net"
 
 	"compress/flate"
-	"io"
-	"net/http"
-	"os/exec"
-
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsflate"
+	"net/http"
 )
 
 // DefaultHTML is used to serve the default HTML page for the ttyd server.
@@ -20,22 +17,16 @@ import (
 //go:embed static/ttyd.html
 var DefaultHTML string
 
-// DefaultTokenHandler is used to serve the default token for the ttyd server.
-func DefaultTokenHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_, _ = io.WriteString(w, "{\"token\": \"\"}")
-}
-
 func wsProtocol(string) bool {
 	return true
 }
 
 // Handler handles each ttyd session.
 type Handler struct {
-	cmd       *exec.Cmd
-	extension *wsflate.Extension
-	writable  bool
-	options   map[string]any
+	tokenHandler TokenHandler
+	extension    *wsflate.Extension
+	writable     bool
+	options      map[string]any
 }
 
 // A HandlerOption sets an option on a handler.
@@ -81,11 +72,11 @@ func WithClientOptions(options map[string]any) HandlerOption {
 }
 
 // NewHandler returns a new Handler with specified options applied.
-// cmd mustn't be nil.
+// tokenHandler mustn't be nil.
 // By default, client input is not forwarded to the tty and no compression is negotiated.
-func NewHandler(cmd *exec.Cmd, options ...HandlerOption) *Handler {
+func NewHandler(tokenHandler TokenHandler, options ...HandlerOption) *Handler {
 	h := &Handler{
-		cmd: cmd,
+		tokenHandler: tokenHandler,
 	}
 	for _, option := range options {
 		option(h)
@@ -116,10 +107,10 @@ func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 			brw:  brw,
 			conn: conn,
 		},
-		cmd:      h.cmd,
-		resume:   make(chan struct{}),
-		writable: h.writable,
-		options:  h.options,
+		tokenHandler: h.tokenHandler,
+		resume:       make(chan struct{}),
+		writable:     h.writable,
+		options:      h.options,
 	}
 
 	if h.extension != nil {
