@@ -69,7 +69,7 @@ func (d *daemon) initWrite() error {
 
 	d.conn.wb.WriteByte(setPreference)
 	if len(d.options) == 0 {
-		d.conn.wb.WriteString("{ }")
+		d.conn.wb.WriteString("{}")
 	} else {
 		_ = json.NewEncoder(&d.conn.wb).Encode(d.options)
 		d.conn.wb.Truncate(d.conn.wb.Len() - 1)

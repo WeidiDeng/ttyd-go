@@ -28,6 +28,7 @@ type Handler struct {
 	writable         bool
 	options          map[string]any
 	messageSizeLimit int64
+	compressionLevel int
 }
 
 // A HandlerOption sets an option on a handler.
@@ -78,6 +79,14 @@ func WithClientOptions(options map[string]any) HandlerOption {
 func WithMessageSizeLimit(limit int64) HandlerOption {
 	return func(h *Handler) {
 		h.messageSizeLimit = limit
+	}
+}
+
+// WithCompressionLevel sets the compression level for the flate writer if compression is negotiated with the peer.
+// Invalid levels or NoCompression will be treated as default compression level.
+func WithCompressionLevel(level int) HandlerOption {
+	return func(h *Handler) {
+		h.compressionLevel = level
 	}
 }
 
@@ -132,9 +141,14 @@ func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 		d.conn.accepted = accepted
 
 		if accepted {
+			level := h.compressionLevel
+			if level < -2 || level > 9 || level == flate.NoCompression {
+				level = flate.DefaultCompression
+			}
+
 			d.conn.fr = flate.NewReader(&d.conn.lr)
 			d.conn.r = d.conn.fr.(flate.Resetter)
-			d.conn.fw, _ = flate.NewWriter(&d.conn.wb, flate.DefaultCompression)
+			d.conn.fw, _ = flate.NewWriter(&d.conn.wb, level)
 		}
 	}
 
