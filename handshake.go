@@ -109,7 +109,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.HandleTTYD(conn, brw)
 }
 
-// HandleTTYD handles a websocket connection upgraded through other means. Normally NewHandler should be used instead.
+// HandleTTYD handles a WebSocket connection upgraded through other means. Normally NewHandler should be used instead.
+// Provided bufio.ReadReadWriter should have buffers with the size of at least 125 for the reader.
+// The writer buffer size will impact how much data is read from the process per read operation.
 func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 	d := &daemon{
 		conn: &wsConn{
