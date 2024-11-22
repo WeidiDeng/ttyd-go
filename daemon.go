@@ -14,10 +14,10 @@ import (
 )
 
 type daemon struct {
-	conn         *wsConn
-	tokenHandler TokenHandler
-	cmd          *exec.Cmd
-	file         *os.File
+	conn    *wsConn
+	cmdFunc func(string) *exec.Cmd
+	cmd     *exec.Cmd
+	file    *os.File
 
 	closeCode ws.StatusCode
 	paused    atomic.Bool
@@ -151,7 +151,7 @@ func (d *daemon) readLoop() {
 				return
 			}
 
-			d.cmd = d.tokenHandler.GetCommand(rr.Token)
+			d.cmd = d.cmdFunc(rr.Token)
 			if d.cmd == nil {
 				return
 			}

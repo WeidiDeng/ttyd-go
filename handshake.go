@@ -4,6 +4,7 @@ import (
 	"bufio"
 	_ "embed"
 	"net"
+	"os/exec"
 
 	"compress/flate"
 	"github.com/gobwas/ws"
@@ -23,7 +24,7 @@ func wsProtocol(string) bool {
 
 // Handler handles each ttyd session.
 type Handler struct {
-	tokenHandler     TokenHandler
+	cmdFunc          func(string) *exec.Cmd
 	extension        *wsflate.Extension
 	writable         bool
 	options          map[string]any
@@ -90,12 +91,19 @@ func WithCompressionLevel(level int) HandlerOption {
 	}
 }
 
+// NewCommandFunc returns a new command function that returns the specified command.
+func NewCommandFunc(cmd *exec.Cmd) func(string) *exec.Cmd {
+	return func(string) *exec.Cmd {
+		return cmd
+	}
+}
+
 // NewHandler returns a new Handler with specified options applied.
-// tokenHandler mustn't be nil.
+// auth mustn't be nil.
 // By default, client input is not forwarded to the tty and no compression is negotiated and no message size limit.
-func NewHandler(tokenHandler TokenHandler, options ...HandlerOption) *Handler {
+func NewHandler(cmdFunc func(string) *exec.Cmd, options ...HandlerOption) *Handler {
 	h := &Handler{
-		tokenHandler: tokenHandler,
+		cmdFunc: cmdFunc,
 	}
 	for _, option := range options {
 		option(h)
@@ -128,7 +136,7 @@ func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 			brw:  brw,
 			conn: conn,
 		},
-		tokenHandler:     h.tokenHandler,
+		cmdFunc:          h.cmdFunc,
 		resume:           make(chan struct{}),
 		writable:         h.writable,
 		options:          h.options,
