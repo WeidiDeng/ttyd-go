@@ -32,6 +32,7 @@ type TokenHandler interface {
 }
 
 // NewUnprotectedTokenHandler returns a new TokenHandler that does not require authentication and will always execute the same command.
+// You can still check the request headers to determine if the request is eligible in your handler.
 func NewUnprotectedTokenHandler(cmd *exec.Cmd) TokenHandler {
 	if cmd == nil {
 		panic("cmd must not be nil")
