@@ -2,7 +2,6 @@ package ttyd
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -19,10 +18,9 @@ type daemon struct {
 	cmd     *exec.Cmd
 	file    *os.File
 
-	closeCode ws.StatusCode
-	paused    atomic.Bool
-	resume    chan struct{}
-	ioErr     atomic.Bool
+	paused atomic.Bool
+	resume chan struct{}
+	ioErr  atomic.Bool
 
 	writable         bool
 	options          map[string]any
@@ -31,26 +29,11 @@ type daemon struct {
 
 func (d *daemon) cleanup() {
 	if d.ioErr.CompareAndSwap(false, true) {
-		var closeCode ws.StatusCode
+		d.conn.Close()
 		if d.file != nil {
 			_ = d.file.Close()
-			err := d.cmd.Wait()
-			if err == nil {
-				closeCode = ws.StatusNormalClosure
-			} else {
-				closeCode = ws.StatusInternalServerError
-			}
-		} else {
-			if d.cmd == nil {
-				closeCode = ws.StatusPolicyViolation
-			} else {
-				closeCode = ws.StatusInternalServerError
-			}
+			_ = d.cmd.Wait()
 		}
-		if d.closeCode != 0 {
-			closeCode = d.closeCode
-		}
-		d.conn.CloseWithStatus(closeCode)
 	}
 }
 
@@ -91,9 +74,6 @@ func (d *daemon) readLoop() {
 
 			err = d.conn.readFrame(d.messageSizeLimit)
 			if err != nil {
-				if errors.Is(err, errFrameTooLarge) {
-					d.closeCode = ws.StatusMessageTooBig
-				}
 				return
 			}
 		}
