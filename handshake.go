@@ -66,6 +66,7 @@ func EnableClientInput() HandlerOption {
 // WithClientOptions sets the client options to be sent to the client.
 // These options can also be set by the client using the URL query parameters,
 // and they have a higher priority than these options.
+// Caller should make sure the options can be serialized to JSON.
 func WithClientOptions(options map[string]any) HandlerOption {
 	return func(h *Handler) {
 		h.options = options
