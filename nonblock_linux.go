@@ -2,8 +2,11 @@
 
 package ttyd
 
-import "os"
+import (
+	"os"
+	"syscall"
+)
 
 func setNonblock(file *os.File) error {
-	return syscall.SetNonblock(int(d.file.Fd()), true)
+	return syscall.SetNonblock(int(file.Fd()), true)
 }

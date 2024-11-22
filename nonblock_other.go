@@ -1,8 +1,8 @@
+//go:build !linux
+
 package ttyd
 
-import (
-	"os"
-)
+import "os"
 
 func setNonblock(*os.File) error {
 	return nil
