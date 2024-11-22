@@ -100,10 +100,11 @@ func NewCommandFunc(cmd *exec.Cmd) func(string) *exec.Cmd {
 
 // NewHandler returns a new Handler with specified options applied.
 // auth mustn't be nil.
-// By default, client input is not forwarded to the tty and no compression is negotiated and no message size limit.
+// By default, client input is not forwarded to the tty and no compression is negotiated and a message size limit of 4096.
 func NewHandler(cmdFunc func(string) *exec.Cmd, options ...HandlerOption) *Handler {
 	h := &Handler{
-		cmdFunc: cmdFunc,
+		cmdFunc:          cmdFunc,
+		messageSizeLimit: 4096,
 	}
 	for _, option := range options {
 		option(h)
@@ -128,8 +129,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleTTYD handles a WebSocket connection upgraded through other means. Normally NewHandler should be used instead.
-// Provided bufio.ReadReadWriter should have buffers with the size of at least 125 for the reader.
-// The writer buffer size will impact how much data is read from the process per read operation.
+// Provided bufio.ReadReadWriter should have buffers with the size of at least 512.
+// The writer buffer size will also impact how much data is read from the process per read operation.
 func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 	d := &daemon{
 		conn: &wsConn{
