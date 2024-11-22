@@ -79,13 +79,10 @@ func (d *daemon) initWrite() error {
 }
 
 func (d *daemon) readLoop() {
-	err := d.initWrite()
-	if err != nil {
-		return
-	}
 	d.conn.lr.R = d.conn.brw
 	for !d.ioErr.Load() {
 		d.conn.rb.Reset()
+		var err error
 		for d.conn.rb.Len() == 0 {
 			err = d.conn.nextFrame()
 			if err != nil {
@@ -165,6 +162,11 @@ func (d *daemon) readLoop() {
 			}
 
 			err = setNonblock(d.file)
+			if err != nil {
+				return
+			}
+
+			err = d.initWrite()
 			if err != nil {
 				return
 			}
