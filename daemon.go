@@ -37,19 +37,7 @@ func (d *daemon) cleanup() {
 	}
 }
 
-func (d *daemon) initWrite() error {
-	d.conn.wb.Grow(d.conn.brw.Writer.Size() - ws.MaxHeaderSize)
-	hostname, _ := os.Hostname()
-	d.conn.wb.WriteByte(setWindowTitle)
-	d.conn.wb.WriteString(strings.Join(d.cmd.Args, " "))
-	d.conn.wb.WriteString(" (")
-	d.conn.wb.WriteString(hostname)
-	d.conn.wb.WriteByte(')')
-	_, err := d.conn.wb.WriteTo(d.conn)
-	if err != nil {
-		return err
-	}
-
+func (d *daemon) setPreference() error {
 	d.conn.wb.WriteByte(setPreference)
 	if len(d.options) == 0 {
 		d.conn.wb.WriteString("{}")
@@ -57,15 +45,29 @@ func (d *daemon) initWrite() error {
 		_ = json.NewEncoder(&d.conn.wb).Encode(d.options)
 		d.conn.wb.Truncate(d.conn.wb.Len() - 1)
 	}
-	_, err = d.conn.wb.WriteTo(d.conn)
+	_, err := d.conn.wb.WriteTo(d.conn)
+	return err
+}
+
+func (d *daemon) setWindowTitle() error {
+	hostname, _ := os.Hostname()
+	d.conn.wb.WriteByte(setWindowTitle)
+	d.conn.wb.WriteString(strings.Join(d.cmd.Args, " "))
+	d.conn.wb.WriteString(" (")
+	d.conn.wb.WriteString(hostname)
+	d.conn.wb.WriteByte(')')
+	_, err := d.conn.wb.WriteTo(d.conn)
 	return err
 }
 
 func (d *daemon) readLoop() {
+	err := d.setPreference()
+	if err != nil {
+		return
+	}
 	d.conn.lr.R = d.conn.brw
 	for !d.ioErr.Load() {
 		d.conn.rb.Reset()
-		var err error
 		for d.conn.rb.Len() == 0 {
 			err = d.conn.nextFrame()
 			if err != nil {
@@ -146,7 +148,7 @@ func (d *daemon) readLoop() {
 				return
 			}
 
-			err = d.initWrite()
+			err = d.setWindowTitle()
 			if err != nil {
 				return
 			}
@@ -156,6 +158,7 @@ func (d *daemon) readLoop() {
 }
 
 func (d *daemon) writeLoop() {
+	d.conn.wb.Grow(d.conn.brw.Writer.Size() - ws.MaxHeaderSize)
 	buf := d.conn.wb.Bytes()[:d.conn.wb.Cap()]
 	for !d.ioErr.Load() {
 		buf[0] = output
