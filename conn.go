@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/flate"
+	"errors"
 	"io"
 	"net"
 	"sync"
@@ -11,6 +12,8 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsflate"
 )
+
+var errFrameTooLarge = errors.New("frame too large")
 
 type wsConn struct {
 	brw  *bufio.ReadWriter
@@ -85,11 +88,14 @@ func (w *wsConn) nextFrame() error {
 	}
 }
 
-func (w *wsConn) readFrame() error {
+func (w *wsConn) readFrame(limit int64) error {
 	r1 := w.hdr.Rsv1()
 	for {
 		idx := w.rb.Len()
 		w.lr.N = w.hdr.Length
+		if limit > 0 && int64(idx)+w.lr.N > limit {
+			return errFrameTooLarge
+		}
 		_, err := w.rb.ReadFrom(&w.lr)
 		if err != nil {
 			return err

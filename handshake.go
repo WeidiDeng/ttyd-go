@@ -23,10 +23,11 @@ func wsProtocol(string) bool {
 
 // Handler handles each ttyd session.
 type Handler struct {
-	tokenHandler TokenHandler
-	extension    *wsflate.Extension
-	writable     bool
-	options      map[string]any
+	tokenHandler     TokenHandler
+	extension        *wsflate.Extension
+	writable         bool
+	options          map[string]any
+	messageSizeLimit int64
 }
 
 // A HandlerOption sets an option on a handler.
@@ -71,9 +72,17 @@ func WithClientOptions(options map[string]any) HandlerOption {
 	}
 }
 
+// WithMessageSizeLimit sets the maximum size of messages that can be sent to the server.
+// Zero or negative value means no limit.
+func WithMessageSizeLimit(limit int64) HandlerOption {
+	return func(h *Handler) {
+		h.messageSizeLimit = limit
+	}
+}
+
 // NewHandler returns a new Handler with specified options applied.
 // tokenHandler mustn't be nil.
-// By default, client input is not forwarded to the tty and no compression is negotiated.
+// By default, client input is not forwarded to the tty and no compression is negotiated and no message size limit.
 func NewHandler(tokenHandler TokenHandler, options ...HandlerOption) *Handler {
 	h := &Handler{
 		tokenHandler: tokenHandler,
@@ -107,10 +116,11 @@ func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 			brw:  brw,
 			conn: conn,
 		},
-		tokenHandler: h.tokenHandler,
-		resume:       make(chan struct{}),
-		writable:     h.writable,
-		options:      h.options,
+		tokenHandler:     h.tokenHandler,
+		resume:           make(chan struct{}),
+		writable:         h.writable,
+		options:          h.options,
+		messageSizeLimit: h.messageSizeLimit,
 	}
 
 	if h.extension != nil {

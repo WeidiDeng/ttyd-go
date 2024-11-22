@@ -2,6 +2,7 @@ package ttyd
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -23,8 +24,9 @@ type daemon struct {
 	resume    chan struct{}
 	ioErr     atomic.Bool
 
-	writable bool
-	options  map[string]any
+	writable         bool
+	options          map[string]any
+	messageSizeLimit int64
 }
 
 func (d *daemon) cleanup() {
@@ -90,8 +92,11 @@ func (d *daemon) readLoop() {
 				return
 			}
 
-			err = d.conn.readFrame()
+			err = d.conn.readFrame(d.messageSizeLimit)
 			if err != nil {
+				if errors.Is(err, errFrameTooLarge) {
+					d.closeCode = ws.StatusMessageTooBig
+				}
 				return
 			}
 		}
