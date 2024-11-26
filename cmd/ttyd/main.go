@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/user"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +25,8 @@ var (
 	compress      = flag.Bool("compress", false, "enable compression")
 	cert          = flag.String("cert", "", "path to the tls certificate file")
 	key           = flag.String("key", "", "path to the tls key file")
+	uid           = flag.Int("uid", 0, "run as user id")
+	gid           = flag.Int("gid", 0, "run as group id")
 )
 
 func customError(msg string) {
@@ -50,8 +55,54 @@ func init() {
 }
 
 func main() {
+	var (
+		uidSet bool
+		gidSet bool
+
+		trueUid int
+		trueGid int
+	)
+	flag.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "uid":
+			uidSet = true
+		case "gid":
+			gidSet = true
+		}
+	})
+	if runtime.GOOS != "windows" && (uidSet || gidSet) {
+		u, err := user.Current()
+		if err != nil {
+			log.Fatalln("failed to get current user:", err)
+		}
+		userUid, err := strconv.Atoi(u.Uid)
+		if err != nil {
+			log.Fatalln("failed to parse current user id:", err)
+		}
+		userGid, err := strconv.Atoi(u.Gid)
+		if err != nil {
+			log.Fatalln("failed to parse current group id:", err)
+		}
+
+		if uidSet {
+			trueUid = *uid
+		} else {
+			trueUid = userUid
+		}
+
+		if gidSet {
+			trueGid = *gid
+		} else {
+			trueGid = userGid
+		}
+	}
+
 	cmdFunc := func() *exec.Cmd {
-		return exec.Command(flag.Args()[0], flag.Args()[1:]...)
+		cmd := exec.Command(flag.Args()[0], flag.Args()[1:]...)
+		if runtime.GOOS != "windows" && (uidSet || gidSet) {
+			setCredential(cmd, trueUid, trueGid)
+		}
+		return cmd
 	}
 	now := time.Now()
 	var authFunc func(w http.ResponseWriter, r *http.Request) bool
@@ -72,6 +123,10 @@ func main() {
 		}
 	}
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		if !authFunc(writer, request) {
+			return
+		}
+
 		http.ServeContent(writer, request, "index.html", now, strings.NewReader(ttyd.DefaultHTML))
 	})
 	http.HandleFunc("/token", func(writer http.ResponseWriter, request *http.Request) {
@@ -114,7 +169,7 @@ func main() {
 	}
 	l, err := net.Listen(network, addr)
 	if err != nil {
-		log.Fatalln("failed to listen:", err.Error())
+		log.Fatalln("failed to listen:")
 	}
 
 	if printAddr {
