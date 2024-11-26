@@ -13,10 +13,9 @@ import (
 )
 
 type daemon struct {
-	conn    *wsConn
-	cmdFunc func(string) *exec.Cmd
-	cmd     *exec.Cmd
-	file    *os.File
+	conn *wsConn
+	cmd  *exec.Cmd
+	file *os.File
 
 	paused atomic.Bool
 	resume chan struct{}
@@ -37,19 +36,7 @@ func (d *daemon) cleanup() {
 	}
 }
 
-func (d *daemon) setPreference() error {
-	d.conn.wb.WriteByte(setPreference)
-	if len(d.options) == 0 {
-		d.conn.wb.WriteString("{}")
-	} else {
-		_ = json.NewEncoder(&d.conn.wb).Encode(d.options)
-		d.conn.wb.Truncate(d.conn.wb.Len() - 1)
-	}
-	_, err := d.conn.wb.WriteTo(d.conn)
-	return err
-}
-
-func (d *daemon) setWindowTitle() error {
+func (d *daemon) initWrite() error {
 	hostname, _ := os.Hostname()
 	d.conn.wb.WriteByte(setWindowTitle)
 	d.conn.wb.WriteString(strings.Join(d.cmd.Args, " "))
@@ -57,11 +44,23 @@ func (d *daemon) setWindowTitle() error {
 	d.conn.wb.WriteString(hostname)
 	d.conn.wb.WriteByte(')')
 	_, err := d.conn.wb.WriteTo(d.conn)
+	if err != nil {
+		return err
+	}
+
+	d.conn.wb.WriteByte(setPreference)
+	if len(d.options) == 0 {
+		d.conn.wb.WriteString("{}")
+	} else {
+		_ = json.NewEncoder(&d.conn.wb).Encode(d.options)
+		d.conn.wb.Truncate(d.conn.wb.Len() - 1)
+	}
+	_, err = d.conn.wb.WriteTo(d.conn)
 	return err
 }
 
 func (d *daemon) readLoop() {
-	err := d.setPreference()
+	err := d.initWrite()
 	if err != nil {
 		return
 	}
@@ -130,11 +129,6 @@ func (d *daemon) readLoop() {
 				return
 			}
 
-			d.cmd = d.cmdFunc(rr.Token)
-			if d.cmd == nil {
-				return
-			}
-
 			d.file, err = pty.StartWithSize(d.cmd, &pty.Winsize{
 				Rows: rr.Rows,
 				Cols: rr.Columns,
@@ -144,11 +138,6 @@ func (d *daemon) readLoop() {
 			}
 
 			err = setNonblock(d.file)
-			if err != nil {
-				return
-			}
-
-			err = d.setWindowTitle()
 			if err != nil {
 				return
 			}

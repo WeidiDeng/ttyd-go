@@ -3,13 +3,15 @@ package ttyd
 import (
 	"bufio"
 	_ "embed"
+	"io"
 	"net"
 	"os/exec"
 
 	"compress/flate"
+	"net/http"
+
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsflate"
-	"net/http"
 )
 
 // DefaultHTML is used to serve the default HTML page for the ttyd server.
@@ -18,13 +20,22 @@ import (
 //go:embed static/ttyd.html
 var DefaultHTML string
 
+// DefaultTokenHandlerFunc is used to serve the default token for the ttyd server.
+// ttyd protocol requires a token to be sent in the first message, but there are
+// other ways to authenticate the client, such as using the URL query parameters
+// and standard HTTP authentications.
+func DefaultTokenHandlerFunc(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = io.WriteString(w, "{\"token\": \"\"}")
+}
+
 func wsProtocol(string) bool {
 	return true
 }
 
 // Handler handles each ttyd session.
 type Handler struct {
-	cmdFunc          func(string) *exec.Cmd
+	cmd              *exec.Cmd
 	extension        *wsflate.Extension
 	writable         bool
 	options          map[string]any
@@ -91,19 +102,12 @@ func WithCompressionLevel(level int) HandlerOption {
 	}
 }
 
-// NewCommandFunc returns a new command function that returns the specified command.
-func NewCommandFunc(cmd *exec.Cmd) func(string) *exec.Cmd {
-	return func(string) *exec.Cmd {
-		return cmd
-	}
-}
-
 // NewHandler returns a new Handler with specified options applied.
-// auth mustn't be nil.
+// cmd mustn't be nil.
 // By default, client input is not forwarded to the tty and no compression is negotiated and a message size limit of 4096.
-func NewHandler(cmdFunc func(string) *exec.Cmd, options ...HandlerOption) *Handler {
+func NewHandler(cmd *exec.Cmd, options ...HandlerOption) *Handler {
 	h := &Handler{
-		cmdFunc:          cmdFunc,
+		cmd:              cmd,
 		messageSizeLimit: 4096,
 	}
 	for _, option := range options {
@@ -137,7 +141,7 @@ func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 			brw:  brw,
 			conn: conn,
 		},
-		cmdFunc:          h.cmdFunc,
+		cmd:              h.cmd,
 		resume:           make(chan struct{}),
 		writable:         h.writable,
 		options:          h.options,
