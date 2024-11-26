@@ -41,6 +41,7 @@ type Handler struct {
 	options          map[string]any
 	messageSizeLimit int64
 	compressionLevel int
+	title            string
 }
 
 // A HandlerOption sets an option on a handler.
@@ -102,6 +103,13 @@ func WithCompressionLevel(level int) HandlerOption {
 	}
 }
 
+// WithTitle sets the title of the terminal. By default, the title is set to the command being run joined with the hostname.
+func WithTitle(title string) HandlerOption {
+	return func(h *Handler) {
+		h.title = title
+	}
+}
+
 // NewHandler returns a new Handler with specified options applied.
 // cmd mustn't be nil.
 // By default, client input is not forwarded to the tty and no compression is negotiated and a message size limit of 4096.
@@ -146,6 +154,7 @@ func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 		writable:         h.writable,
 		options:          h.options,
 		messageSizeLimit: h.messageSizeLimit,
+		title:            h.title,
 	}
 
 	if h.extension != nil {

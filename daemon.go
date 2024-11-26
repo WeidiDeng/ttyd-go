@@ -24,6 +24,7 @@ type daemon struct {
 	writable         bool
 	options          map[string]any
 	messageSizeLimit int64
+	title            string
 }
 
 func (d *daemon) cleanup() {
@@ -37,12 +38,16 @@ func (d *daemon) cleanup() {
 }
 
 func (d *daemon) initWrite() error {
-	hostname, _ := os.Hostname()
 	d.conn.wb.WriteByte(setWindowTitle)
-	d.conn.wb.WriteString(strings.Join(d.cmd.Args, " "))
-	d.conn.wb.WriteString(" (")
-	d.conn.wb.WriteString(hostname)
-	d.conn.wb.WriteByte(')')
+	if d.title != "" {
+		d.conn.wb.WriteString(d.title)
+	} else {
+		hostname, _ := os.Hostname()
+		d.conn.wb.WriteString(strings.Join(d.cmd.Args, " "))
+		d.conn.wb.WriteString(" (")
+		d.conn.wb.WriteString(hostname)
+		d.conn.wb.WriteByte(')')
+	}
 	_, err := d.conn.wb.WriteTo(d.conn)
 	if err != nil {
 		return err
