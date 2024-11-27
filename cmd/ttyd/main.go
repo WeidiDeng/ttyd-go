@@ -27,6 +27,7 @@ var (
 	key           = flag.String("key", "", "path to the tls key file")
 	uid           = flag.Int("uid", 0, "run as user id")
 	gid           = flag.Int("gid", 0, "run as group id")
+	cwd           = flag.String("cwd", "", "current working directory for the process. calling process's cwd is used if not provided")
 )
 
 func customError(msg string) {
@@ -102,6 +103,7 @@ func main() {
 		if runtime.GOOS != "windows" && (uidSet || gidSet) {
 			setCredential(cmd, trueUid, trueGid)
 		}
+		cmd.Dir = *cwd
 		return cmd
 	}
 	now := time.Now()
