@@ -2,6 +2,7 @@ package ttyd
 
 import (
 	"bufio"
+	"bytes"
 	_ "embed"
 	"io"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"compress/flate"
 	"net/http"
 
+	"github.com/gobwas/httphead"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsflate"
 )
@@ -46,15 +48,55 @@ type Handler struct {
 
 // ServeHTTP upgrades the HTTP connection to a WebSocket connection and serve ttyd protocol on it.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	upgrader := &ws.HTTPUpgrader{
-		Protocol: wsProtocol,
-	}
-	if h.extension != nil {
-		upgrader.Negotiate = h.extension.Negotiate
-	}
-	conn, brw, _, err := upgrader.Upgrade(r, w)
-	if err != nil {
-		return
+	var (
+		conn net.Conn
+		brw  *bufio.ReadWriter
+		err  error
+	)
+	if r.ProtoMajor == 2 && r.Method == http.MethodConnect && r.Header.Get(":protocol") != "" {
+		if h.extension != nil && r.Header.Get("Sec-WebSocket-Extensions") != "" {
+			options, _ := httphead.ParseOptions([]byte(r.Header.Get("Sec-WebSocket-Extensions")), nil)
+			for _, opt := range options {
+				if bytes.Equal(opt.Name, wsflate.ExtensionNameBytes) {
+					_, err = h.extension.Negotiate(opt)
+					if err != nil {
+						return
+					}
+				}
+			}
+		}
+
+		if r.Header.Get("Sec-WebSocket-Protocol") != "" {
+			w.Header().Set("Sec-WebSocket-Protocol", r.Header.Get("Sec-WebSocket-Protocol"))
+		}
+		w.WriteHeader(http.StatusOK)
+		err = http.NewResponseController(w).Flush()
+		if err != nil {
+			return
+		}
+
+		localAddr := r.Context().Value(http.LocalAddrContextKey).(net.Addr)
+		conn = &http2Conn{
+			w:          w,
+			ReadCloser: r.Body,
+			localAddr:  localAddr,
+			remoteAddr: &http2Addr{
+				network: localAddr.Network(),
+				addr:    r.RemoteAddr,
+			},
+		}
+		brw = bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+	} else {
+		upgrader := &ws.HTTPUpgrader{
+			Protocol: wsProtocol,
+		}
+		if h.extension != nil {
+			upgrader.Negotiate = h.extension.Negotiate
+		}
+		conn, brw, _, err = upgrader.Upgrade(r, w)
+		if err != nil {
+			return
+		}
 	}
 
 	h.HandleTTYD(conn, brw)
