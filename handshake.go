@@ -113,13 +113,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.HandleTTYD(conn, brw)
+	h.HandleTTYD(conn, brw, hs)
 }
 
 // HandleTTYD handles a WebSocket connection upgraded through other means. Normally NewHandler should be used instead.
 // Provided bufio.ReadReadWriter should have buffers with the size of at least 512.
 // The writer buffer size will also impact how much data is read from the process per read operation.
-func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
+func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter, hs ws.Handshake) {
 	d := &daemon{
 		conn: &wsConn{
 			brw:  brw,
@@ -133,8 +133,19 @@ func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter) {
 		title:            h.title,
 	}
 
-	if h.extension != nil {
-		e, accepted := h.extension.Accepted()
+	if len(hs.Extensions) > 0 {
+		var (
+			e        wsflate.Parameters
+			accepted bool
+		)
+		for _, ext := range hs.Extensions {
+			if bytes.Equal(ext.Name, wsflate.ExtensionNameBytes) {
+				_ = e.Parse(ext)
+				accepted = true
+				break
+			}
+		}
+
 		d.conn.e = e
 		d.conn.accepted = accepted
 
