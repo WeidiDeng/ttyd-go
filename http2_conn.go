@@ -54,7 +54,11 @@ func (h *http2Conn) SetDeadline(t time.Time) error {
 }
 
 func (h *http2Conn) SetReadDeadline(t time.Time) error {
-	return http.NewResponseController(h.w).SetReadDeadline(t)
+	err := h.SetReadDeadline(t)
+	if err != nil {
+		return err
+	}
+	return h.SetWriteDeadline(t)
 }
 
 func (h *http2Conn) SetWriteDeadline(t time.Time) error {
