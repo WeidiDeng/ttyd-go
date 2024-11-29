@@ -109,6 +109,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		conn, brw, hs, err = upgrader.Upgrade(r, w)
 		if err != nil {
+			if conn != nil {
+				_ = conn.Close()
+			}
 			return
 		}
 	}
