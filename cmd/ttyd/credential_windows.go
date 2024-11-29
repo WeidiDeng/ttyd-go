@@ -4,5 +4,5 @@ package main
 
 import "os/exec"
 
-func setCredential(cmd *exec.Cmd, uid, gid int) {
+func setCredential(cmd *exec.Cmd) {
 }
