@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os/exec"
+	"strings"
 
 	"compress/flate"
 	"net/http"
@@ -51,24 +52,37 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var (
 		conn net.Conn
 		brw  *bufio.ReadWriter
+		hs   ws.Handshake
 		err  error
 	)
 	if r.ProtoMajor == 2 && r.Method == http.MethodConnect && r.Header.Get(":protocol") != "" {
-		if h.extension != nil && r.Header.Get("Sec-WebSocket-Extensions") != "" {
-			options, _ := httphead.ParseOptions([]byte(r.Header.Get("Sec-WebSocket-Extensions")), nil)
-			for _, opt := range options {
-				if bytes.Equal(opt.Name, wsflate.ExtensionNameBytes) {
-					_, err = h.extension.Negotiate(opt)
-					if err != nil {
-						return
+		if h.extension != nil {
+			if extension := r.Header.Get("Sec-WebSocket-Extensions"); extension != "" {
+				options, _ := httphead.ParseOptions([]byte(extension), nil)
+				for _, opt := range options {
+					if bytes.Equal(opt.Name, wsflate.ExtensionNameBytes) {
+						var negotiated httphead.Option
+						negotiated, err = h.extension.Negotiate(opt)
+						if err != nil {
+							return
+						}
+						hs.Extensions = append(hs.Extensions, negotiated)
 					}
 				}
 			}
 		}
 
-		if r.Header.Get("Sec-WebSocket-Protocol") != "" {
-			w.Header().Set("Sec-WebSocket-Protocol", r.Header.Get("Sec-WebSocket-Protocol"))
+		if protocol := r.Header.Get("Sec-WebSocket-Protocol"); protocol != "" {
+			hs.Protocol = protocol
+			w.Header().Set("Sec-WebSocket-Protocol", protocol)
 		}
+
+		if len(hs.Extensions) > 0 {
+			var sb strings.Builder
+			_, _ = httphead.WriteOptions(&sb, hs.Extensions)
+			w.Header().Set("Sec-WebSocket-Extensions", sb.String())
+		}
+
 		w.WriteHeader(http.StatusOK)
 		err = http.NewResponseController(w).Flush()
 		if err != nil {
@@ -93,7 +107,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if h.extension != nil {
 			upgrader.Negotiate = h.extension.Negotiate
 		}
-		conn, brw, _, err = upgrader.Upgrade(r, w)
+		conn, brw, hs, err = upgrader.Upgrade(r, w)
 		if err != nil {
 			return
 		}
