@@ -74,7 +74,7 @@ func WithTitle(title string) HandlerOption {
 // WithPingInterval sets the interval at which ping frames are sent to clients.
 // Zero or negative value disables the sending of pings. It's used to keep the connection alive when ttyd
 // is used over a proxy.
-func WithPingInterval(interval, timeout time.Duration) HandlerOption {
+func WithPingInterval(interval time.Duration) HandlerOption {
 	return func(h *Handler) {
 		h.pingInterval = interval
 	}
