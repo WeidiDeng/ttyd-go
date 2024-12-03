@@ -8,6 +8,7 @@ import (
 	"net"
 	"os/exec"
 	"strings"
+	"time"
 
 	"compress/flate"
 	"net/http"
@@ -45,6 +46,22 @@ type Handler struct {
 	messageSizeLimit int64
 	compressionLevel int
 	title            string
+	pingInterval     time.Duration
+}
+
+// NewHandler returns a new Handler with specified options applied.
+// cmd mustn't be nil.
+// By default, client input is not forwarded to the tty, no compression is negotiated, message has the size limit of 4096,
+// and no ping is sent by the server.
+func NewHandler(cmd *exec.Cmd, options ...HandlerOption) *Handler {
+	h := &Handler{
+		cmd:              cmd,
+		messageSizeLimit: 4096,
+	}
+	for _, option := range options {
+		option(h)
+	}
+	return h
 }
 
 // ServeHTTP upgrades the HTTP connection to a WebSocket connection and serve ttyd protocol on it.
@@ -164,7 +181,15 @@ func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter, hs ws.Handsha
 		}
 	}
 
+	var done chan struct{}
+	if h.pingInterval > 0 {
+		done = make(chan struct{})
+		go d.pingLoop(time.NewTicker(h.pingInterval), done)
+	}
 	d.readLoop()
 	close(d.resume)
 	d.cleanup()
+	if h.pingInterval > 0 {
+		close(done)
+	}
 }

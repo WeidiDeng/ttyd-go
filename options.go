@@ -1,7 +1,7 @@
 package ttyd
 
 import (
-	"os/exec"
+	"time"
 
 	"github.com/gobwas/ws/wsflate"
 )
@@ -71,16 +71,11 @@ func WithTitle(title string) HandlerOption {
 	}
 }
 
-// NewHandler returns a new Handler with specified options applied.
-// cmd mustn't be nil.
-// By default, client input is not forwarded to the tty and no compression is negotiated and a message size limit of 4096.
-func NewHandler(cmd *exec.Cmd, options ...HandlerOption) *Handler {
-	h := &Handler{
-		cmd:              cmd,
-		messageSizeLimit: 4096,
+// WithPingInterval sets the interval at which ping frames are sent to clients.
+// Zero or negative value disables the sending of pings. It's used to keep the connection alive when ttyd
+// is used over a proxy.
+func WithPingInterval(interval, timeout time.Duration) HandlerOption {
+	return func(h *Handler) {
+		h.pingInterval = interval
 	}
-	for _, option := range options {
-		option(h)
-	}
-	return h
 }

@@ -43,6 +43,13 @@ func (w *wsConn) Close() {
 	_ = w.conn.Close()
 }
 
+func (w *wsConn) Ping() error {
+	w.lock.Lock()
+	_, err := w.conn.Write(ws.CompiledPing)
+	w.lock.Unlock()
+	return err
+}
+
 func (w *wsConn) handleControl(hdr ws.Header) error {
 	data, err := w.brw.Peek(int(hdr.Length))
 	if err != nil {

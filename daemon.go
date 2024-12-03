@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/gobwas/ws"
@@ -170,5 +171,19 @@ func (d *daemon) writeLoop() {
 			<-d.resume
 		}
 	}
+	d.cleanup()
+}
+
+func (d *daemon) pingLoop(ticker *time.Ticker, done chan struct{}) {
+	var err error
+	for !d.ioErr.Load() && err == nil {
+		select {
+		case <-ticker.C:
+			err = d.conn.Ping()
+		case <-done:
+			err = io.EOF
+		}
+	}
+	ticker.Stop()
 	d.cleanup()
 }
