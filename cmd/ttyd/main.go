@@ -8,9 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/user"
-	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
