@@ -12,10 +12,16 @@ Most of the features of the [ttyd](https://github.com/tsl0922/ttyd) are supporte
 - Run any custom command with options
 - Cross-platform: macOS, Linux, FreeBSD/OpenBSD, [OpenWrt](https://openwrt.org). [Windows](https://github.com/creack/pty/pull/155) is not supported yet.
 
-# Library Usage
-
-Under construction 🚧.
-
 # Command Usage
+
+## Installation
+
+```bash
+go install github.com/WeidiDeng/ttyd-go/cmd/ttyd@latest
+```
+
+Run `ttyd --help` for more information.
+
+# Library Usage
 
 Under construction 🚧.
