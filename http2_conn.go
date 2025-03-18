@@ -12,11 +12,11 @@ type http2Addr struct {
 	addr    string
 }
 
-func (h http2Addr) Network() string {
+func (h *http2Addr) Network() string {
 	return h.network
 }
 
-func (h http2Addr) String() string {
+func (h *http2Addr) String() string {
 	return h.addr
 }
 
