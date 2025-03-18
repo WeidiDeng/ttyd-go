@@ -175,8 +175,7 @@ func (h *Handler) HandleTTYD(conn net.Conn, brw *bufio.ReadWriter, hs ws.Handsha
 				level = flate.DefaultCompression
 			}
 
-			d.conn.fr = flate.NewReader(&d.conn.lr)
-			d.conn.r = d.conn.fr.(flate.Resetter)
+			d.conn.fr = flate.NewReader(&d.conn.lr).(flateReader)
 			d.conn.fw, _ = flate.NewWriter(&d.conn.wb, level)
 		}
 	}

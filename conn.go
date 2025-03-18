@@ -15,6 +15,11 @@ import (
 
 var errFrameTooLarge = errors.New("frame too large")
 
+type flateReader interface {
+	io.ReadCloser
+	flate.Resetter
+}
+
 type wsConn struct {
 	brw  *bufio.ReadWriter
 	conn net.Conn
@@ -28,8 +33,7 @@ type wsConn struct {
 	accepted bool
 
 	sw bytes.Buffer
-	fr io.ReadCloser
-	r  flate.Resetter
+	fr flateReader
 	fw *flate.Writer
 
 	hdr  ws.Header
@@ -122,7 +126,7 @@ func (w *wsConn) readFrame(limit int64) error {
 	}
 
 	w.rb.Write(compressionReadTail)
-	_ = w.r.Reset(&w.rb, w.sw.Bytes())
+	_ = w.fr.Reset(&w.rb, w.sw.Bytes())
 
 	n, err := w.rb.ReadFrom(w.fr)
 	if err != nil {
