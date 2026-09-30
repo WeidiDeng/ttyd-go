@@ -160,7 +160,7 @@ func (w *wsConn) Write(p []byte) (n int, err error) {
 			_ = w.fw.Flush()
 		}
 
-		frame = ws.NewBinaryFrame(w.wb.Bytes()[:w.wb.Len()-4])
+		frame = ws.NewBinaryFrame(bytes.TrimSuffix(w.wb.Bytes(), compressionTail))
 		frame.Header.Rsv = ws.Rsv(true, false, false)
 	}
 	_ = ws.WriteFrame(w.brw, frame)
