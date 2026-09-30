@@ -12,14 +12,9 @@ const (
 	setPreference  = '2'
 )
 
-var (
-	compressionTail = []byte{
-		0, 0, 0xff, 0xff,
-	}
-	compressionReadTail = []byte{
-		0, 0, 0xff, 0xff, 1, 0, 0, 0xff, 0xff,
-	}
-)
+var compressionReadTail = []byte{
+	0, 0, 0xff, 0xff, 1, 0, 0, 0xff, 0xff,
+}
 
 type resizeRequest struct {
 	Columns uint16 `json:"columns"`

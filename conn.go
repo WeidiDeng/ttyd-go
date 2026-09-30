@@ -154,13 +154,14 @@ func (w *wsConn) Write(p []byte) (n int, err error) {
 			w.fw.Reset(&w.wb)
 		}
 		_, _ = w.fw.Write(p)
+		_ = w.fw.Flush()
 		if w.e.ServerNoContextTakeover {
-			_ = w.fw.Close()
+			w.wb.WriteByte(0x01)
 		} else {
-			_ = w.fw.Flush()
+			w.wb.Truncate(w.wb.Len() - 4)
 		}
 
-		frame = ws.NewBinaryFrame(bytes.TrimSuffix(w.wb.Bytes(), compressionTail))
+		frame = ws.NewBinaryFrame(w.wb.Bytes())
 		frame.Header.Rsv = ws.Rsv(true, false, false)
 	}
 	_ = ws.WriteFrame(w.brw, frame)
